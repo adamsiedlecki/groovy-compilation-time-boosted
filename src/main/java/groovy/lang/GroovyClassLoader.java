@@ -1137,6 +1137,10 @@ public class GroovyClassLoader extends URLClassLoader {
      * @see #getTimeStamp(Class)
      */
     protected boolean isSourceNewer(URL source, Class cls) throws IOException {
+        if (cls != null) {
+            return false;
+        }
+
         long lastMod;
 
         // Special handling for file:// protocol, as getLastModified() often reports
