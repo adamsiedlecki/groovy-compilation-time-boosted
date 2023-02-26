@@ -862,15 +862,37 @@ public class GroovyClassLoader extends URLClassLoader {
             return cls;
         }
 
-        // enable recompilation?
-//        boolean recompile = isRecompilable(cls);
-//        if (!recompile) return cls;
+        ClassNotFoundException last = null;
+        try {
+            Class parentClassLoaderClass = super.loadClass(name, resolve);
+            // always return if the parent loader was successful
+            if (null != parentClassLoaderClass) return parentClassLoaderClass;
+        } catch (ClassNotFoundException cnfe) {
+            last = cnfe;
+        } catch (NoClassDefFoundError ncdfe) {
+            if (ncdfe.getMessage().indexOf("wrong name") > 0) {
+                last = new ClassNotFoundException(name);
+            } else {
+                throw ncdfe;
+            }
+        }
 
-        // try parent loader
-        System.out.println("loading: "+name);
-        if (name.startsWith("fabryka") || name.startsWith("weryfikatory")) {
-            System.out.println("Loading  from groovy file at first: "+name);
-            ClassNotFoundException last = null;
+        // check security manager
+//        SecurityManager sm = System.getSecurityManager();
+//        if (sm != null) {
+//            String className = name.replace('/', '.');
+//            int i = className.lastIndexOf('.');
+//            // no checks on the sun.reflect classes for reflection speed-up
+//            // in particular ConstructorAccessorImpl, MethodAccessorImpl, FieldAccessorImpl and SerializationConstructorAccessorImpl
+//            // which are generated at runtime by the JDK
+//            if (i != -1 && !className.startsWith("sun.reflect.")) {
+//                sm.checkPackageAccess(className.substring(0, i));
+//            }
+//        }
+
+        // at this point the loading from a parent loader failed
+        // and we want to recompile if needed.
+        if (lookupScriptFiles) {
             // try groovy file
             try {
                 // check if recompilation already happened.
@@ -878,113 +900,26 @@ public class GroovyClassLoader extends URLClassLoader {
 //                if (classCacheEntry != cls) return classCacheEntry;
                 URL source = resourceLoader.loadGroovySource(name);
                 // if recompilation fails, we want cls==null
-//                Class oldClass = cls;
-//                cls = null;
-                cls = recompile(source, name, null);
-                if(cls != null) return cls;
 
+                cls = null;
+                cls = recompile(source, name, null);
             } catch (IOException ioe) {
                 last = new ClassNotFoundException("IOException while opening groovy source: " + name, ioe);
             } finally {
                 if (cls == null) {
-                    //removeClassCacheEntry(name);
+                    removeClassCacheEntry(name);
                 } else {
                     setClassCacheEntry(cls);
-
                 }
             }
-
-
-
-            try {
-                Class parentClassLoaderClass = super.loadClass(name, resolve);
-                // always return if the parent loader was successful
-                if (cls != parentClassLoaderClass) return parentClassLoaderClass;
-            } catch (ClassNotFoundException cnfe) {
-                last = cnfe;
-            } catch (NoClassDefFoundError ncdfe) {
-                if (ncdfe.getMessage().indexOf("wrong name") > 0) {
-                    last = new ClassNotFoundException(name);
-                } else {
-                    throw ncdfe;
-                }
-            }
-
-            // prefer class if no recompilation
-            if (cls != null && preferClassOverScript) return cls;
-
-            // at this point the loading from a parent loader failed
-            // and we want to recompile if needed.
-
-            if (cls == null) {
-                // no class found, there should have been an exception before now
-                if (last == null) throw new AssertionError(true);
-                throw last;
-            }
-            return cls;
-        } else { // po staremu
-            ClassNotFoundException last = null;
-            try {
-                Class parentClassLoaderClass = super.loadClass(name, resolve);
-                // always return if the parent loader was successful
-                if (cls != parentClassLoaderClass) return parentClassLoaderClass;
-            } catch (ClassNotFoundException cnfe) {
-                last = cnfe;
-            } catch (NoClassDefFoundError ncdfe) {
-                if (ncdfe.getMessage().indexOf("wrong name") > 0) {
-                    last = new ClassNotFoundException(name);
-                } else {
-                    throw ncdfe;
-                }
-            }
-
-            // check security manager
-            SecurityManager sm = System.getSecurityManager();
-            if (sm != null) {
-                String className = name.replace('/', '.');
-                int i = className.lastIndexOf('.');
-                // no checks on the sun.reflect classes for reflection speed-up
-                // in particular ConstructorAccessorImpl, MethodAccessorImpl, FieldAccessorImpl and SerializationConstructorAccessorImpl
-                // which are generated at runtime by the JDK
-                if (i != -1 && !className.startsWith("sun.reflect.")) {
-                    sm.checkPackageAccess(className.substring(0, i));
-                }
-            }
-
-            // prefer class if no recompilation
-            if (cls != null && preferClassOverScript) return cls;
-
-            // at this point the loading from a parent loader failed
-            // and we want to recompile if needed.
-            if (lookupScriptFiles) {
-                // try groovy file
-                try {
-                    // check if recompilation already happened.
-                    final Class classCacheEntry = getClassCacheEntry(name);
-                    if (classCacheEntry != cls) return classCacheEntry;
-                    URL source = resourceLoader.loadGroovySource(name);
-                    // if recompilation fails, we want cls==null
-                    Class oldClass = cls;
-                    cls = null;
-                    cls = recompile(source, name, oldClass);
-                } catch (IOException ioe) {
-                    last = new ClassNotFoundException("IOException while opening groovy source: " + name, ioe);
-                } finally {
-                    if (cls == null) {
-                        removeClassCacheEntry(name);
-                    } else {
-                        setClassCacheEntry(cls);
-                    }
-                }
-            }
-
-            if (cls == null) {
-                // no class found, there should have been an exception before now
-                if (last == null) throw new AssertionError(true);
-                throw last;
-            }
-            return cls;
         }
+
+        if (cls == null) {
+            // no class found, there should have been an exception before now
+            if (last == null) throw new AssertionError(true);
+            throw last;
+        }
+        return cls;
     }
 
     /**
@@ -1004,10 +939,10 @@ public class GroovyClassLoader extends URLClassLoader {
     protected Class recompile(URL source, String className, Class oldClass) throws CompilationFailedException, IOException {
         if (source != null) {
             // found a source, compile it if newer
-            if (oldClass == null || isSourceNewer(source, oldClass)) {
+            if (oldClass == null ) { // || isSourceNewer(source, oldClass)
                 String name = source.toExternalForm();
 
-                sourceCache.remove(name);
+                //sourceCache.remove(name);
 
                 if (isFile(source)) {
                     try {
