@@ -575,8 +575,19 @@ public class GroovyScriptEngine implements ResourceConnector {
      * @throws ResourceException if there is a problem accessing the script
      * @throws ScriptException   if there is a problem parsing the script
      */
-    public Script createScript(String scriptName, Binding binding) throws ResourceException, ScriptException {
-        return InvokerHelper.createScript(loadScriptByName(scriptName), binding);
+    public Script createScript(String scriptName, Binding binding)  {
+        Class clazz = TimeMeasureUtil.measure("Loading class", () -> {
+            try {
+                return loadScriptByName(scriptName);
+            } catch (ResourceException | ScriptException e) {
+                throw new RuntimeException(e);
+            }
+        });
+
+        Script script = TimeMeasureUtil.measure("InvokerHelper.createScript", () -> {
+            return InvokerHelper.createScript(clazz, binding);
+        });
+        return script;
     }
 
     private long getLastModified(String scriptName) throws ResourceException {
@@ -593,48 +604,48 @@ public class GroovyScriptEngine implements ResourceConnector {
 
     protected boolean isSourceNewer(ScriptCacheEntry entry) {
         if (entry == null) return true;
+//
+//        long mainEntryLastCheck = entry.lastCheck;
+//        long now = 0;
+//
+//        boolean returnValue = false;
+//        for (String scriptName : entry.dependencies) {
+//            ScriptCacheEntry depEntry = scriptCache.get(scriptName);
+//            if (depEntry.sourceNewer) return true;
+//
+//            // check if maybe dependency was recompiled, but this one here not
+//            if (mainEntryLastCheck < depEntry.lastModified) {
+//                returnValue = true;
+//                continue;
+//            }
+//
+//            if (now == 0) now = getCurrentTime();
+//            long nextSourceCheck = depEntry.lastCheck + config.getMinimumRecompilationInterval();
+//            if (nextSourceCheck > now) continue;
+//
+//            long lastMod;
+//            try {
+//                lastMod = getLastModified(scriptName);
+//            } catch (ResourceException e) {
+//                /*
+//                Class A depends on class B and they both are compiled once.  If class A is then
+//                loaded again from loadScriptByName(scriptName) after class B and all references to
+//                it have been deleted from the root, this exception will occur.  It is still valid
+//                and necessary to attempt a recompile of class A.
+//                */
+//                return true;
+//            }
+//            if (depEntry.lastModified < lastMod) {
+//                depEntry = new ScriptCacheEntry(depEntry, lastMod, true);
+//                scriptCache.put(scriptName, depEntry);
+//                returnValue = true;
+//            } else {
+//                depEntry = new ScriptCacheEntry(depEntry, now, false);
+//                scriptCache.put(scriptName, depEntry);
+//            }
+//        }
 
-        long mainEntryLastCheck = entry.lastCheck;
-        long now = 0;
-
-        boolean returnValue = false;
-        for (String scriptName : entry.dependencies) {
-            ScriptCacheEntry depEntry = scriptCache.get(scriptName);
-            if (depEntry.sourceNewer) return true;
-
-            // check if maybe dependency was recompiled, but this one here not
-            if (mainEntryLastCheck < depEntry.lastModified) {
-                returnValue = true;
-                continue;
-            }
-
-            if (now == 0) now = getCurrentTime();
-            long nextSourceCheck = depEntry.lastCheck + config.getMinimumRecompilationInterval();
-            if (nextSourceCheck > now) continue;
-
-            long lastMod;
-            try {
-                lastMod = getLastModified(scriptName);
-            } catch (ResourceException e) {
-                /*
-                Class A depends on class B and they both are compiled once.  If class A is then
-                loaded again from loadScriptByName(scriptName) after class B and all references to
-                it have been deleted from the root, this exception will occur.  It is still valid
-                and necessary to attempt a recompile of class A.
-                */
-                return true;
-            }
-            if (depEntry.lastModified < lastMod) {
-                depEntry = new ScriptCacheEntry(depEntry, lastMod, true);
-                scriptCache.put(scriptName, depEntry);
-                returnValue = true;
-            } else {
-                depEntry = new ScriptCacheEntry(depEntry, now, false);
-                scriptCache.put(scriptName, depEntry);
-            }
-        }
-
-        return returnValue;
+        return false;
     }
 
     /**

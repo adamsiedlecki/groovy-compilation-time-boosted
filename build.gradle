@@ -46,6 +46,30 @@ plugins {
     id 'com.github.ben-manes.versions' version '0.42.0'
     id 'com.github.blindpirate.osgi' version '0.0.6'
     id 'org.sonarqube' version '3.0'
+    id 'java-library'
+    id 'maven-publish'
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            groupId = 'pl.adamsiedlecki'
+            artifactId = 'groovy-booster'
+            version = "3.0.X"
+            from components.java
+
+            pom {
+                description = 'A description of my library'
+            }
+        }
+    }
+}
+
+group 'pl.adamsiedlecki.groovy.booster'
+version '3.0.15.1'
+
+repositories {
+    mavenCentral()
 }
 
 buildScanRecipes {

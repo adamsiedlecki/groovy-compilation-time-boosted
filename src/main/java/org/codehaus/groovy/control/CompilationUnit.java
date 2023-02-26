@@ -656,7 +656,7 @@ public class CompilationUnit extends ProcessingUnit {
 
     private void buildASTs() {
         Boolean bpe = configuration.getOptimizationOptions().get(CompilerConfiguration.PARALLEL_PARSE);
-        boolean parallelParseEnabled = null != bpe && bpe;
+        boolean parallelParseEnabled = true;//null != bpe && bpe;
 
         Collection<SourceUnit> sourceUnits = sources.values();
         Stream<SourceUnit> sourceUnitStream =
